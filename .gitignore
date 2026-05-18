@@ -115,3 +115,21 @@ fabric.properties
 .idea/**/azureSettings.xml
 
 # End of https://www.toptal.com/developers/gitignore/api/intellij
+
+# Gradle
+.gradle/
+
+# Build folders
+build/
+core/build/
+lwjgl3/build/
+
+# Java compiled files
+*.class
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db

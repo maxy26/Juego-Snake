@@ -1,4 +1,0 @@
-Speed.wav
-libgdx.png
-mixkit-8-bit-lose-2031.wav
-mixkit-winning-a-coin-video-game-2069.wav
