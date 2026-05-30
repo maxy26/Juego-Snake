@@ -7,6 +7,9 @@ dependencies {
   if(enableGraalNative == 'true') {
     implementation "io.github.berstanio:gdx-svmhelper-annotations:$graalHelperVersion"
   }
+
+  implementation 'com.fazecast:jSerialComm:2.11.0'
+
 }
 
 jar {

@@ -15,7 +15,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.Preferences;
-
+import com.fazecast.jSerialComm.SerialPort;
 
 public class Main extends ApplicationAdapter {
 
@@ -27,6 +27,9 @@ public class Main extends ApplicationAdapter {
     Sound sonidoComer;
     Sound sonidoMuerte;
     Sound sonidoSpeed;
+
+    public int ButonSeleccionado = 0;
+
 
     Preferences prefs;
 
@@ -73,18 +76,20 @@ public class Main extends ApplicationAdapter {
 
         if (respuesta == 0) {
 
-            serpiente = new Snake();
-            generarComidaSegura();
+    serpiente = new Snake();
+    serpiente.xDireccion = 0;
+    serpiente.yDireccion = 1;
+    generarComidaSegura();
 
-            puntaje = 0;
-            speed = 1;
+    puntaje = 0;
+    speed = 1;
 
-            estado = EstadoJuego.JUGANDO;
+    estado = EstadoJuego.JUGANDO;
 
-        } else {
+} else {
 
-            Gdx.app.exit();
-        }
+    Gdx.app.exit();
+}
     }
 
     @Override
@@ -108,6 +113,13 @@ public class Main extends ApplicationAdapter {
         comida = new Comida();
 
         generarComidaSegura();
+
+
+        // Se establece la conexión del puerto donde está conectado el Arduino con el programa
+        LectorJoystick lector = new LectorJoystick("COM3", this);
+        Thread hiloJoystick = new Thread(lector); //Creación de un objeto de la clase Thread
+        hiloJoystick.setDaemon(true); // Evita que el hilo se quede colgado en segundo plano al cerrar el juego
+        hiloJoystick.start(); //Esta función hace que el hilo empieze a ejecutar su tarea
     }
 
     @Override
