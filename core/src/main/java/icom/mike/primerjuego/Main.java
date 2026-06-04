@@ -1,6 +1,7 @@
 package icom.mike.primerjuego;
 
 import Clases.Comida;
+import Clases.Pausa;
 import Clases.GameOver;
 import Clases.Snake;
 import Enums.EstadoJuego;
@@ -15,15 +16,20 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.Preferences;
-import com.fazecast.jSerialComm.SerialPort;
+import java.util.ArrayList;
 
 public class Main extends ApplicationAdapter {
+
+    ArrayList<Comida> comida = new ArrayList<>();
+    Comida comidaReal;
 
     ShapeRenderer shape;
     OrthographicCamera camera;
 
     SpriteBatch batch;
     BitmapFont font;
+
+    Sound sonidoError;
     Sound sonidoComer;
     Sound sonidoMuerte;
     Sound sonidoSpeed;
@@ -33,15 +39,63 @@ public class Main extends ApplicationAdapter {
 
     Preferences prefs;
 
-    EstadoJuego estado = EstadoJuego.JUGANDO;
-
+    EstadoJuego estado = EstadoJuego.ESPERANDO;
     // tamaño de celda (cada parte de la serpiente)
     int celda = 50;
     int speed = 1;
     int record = 0;
 
     Snake serpiente;
-    Comida comida;
+
+    public void generarComidaValida(Comida c, ArrayList<int[]> ocupadas) {
+
+        boolean valida = false;
+
+        while (!valida) {
+
+            c.generate(800, 600, celda);
+            valida = true;
+
+            for (int[] p : ocupadas) {
+
+                if (p[0] == c.xPosicion && p[1] == c.yPosicion) {
+                    valida = false;
+                    break;
+                }
+            }
+        }
+    }
+
+    public void generarComidas() {
+
+        comida.clear();
+
+        ArrayList<int[]> ocupadas = new ArrayList<>();
+
+        // incluir snake
+        for (int[] p : serpiente.cuerpo) {
+            ocupadas.add(new int[]{p[0], p[1]});
+        }
+
+        // COMIDA REAL
+        comidaReal = new Comida();
+        comidaReal.esReal = true;
+        generarComidaValida(comidaReal, ocupadas);
+        comida.add(comidaReal);
+        ocupadas.add(new int[]{comidaReal.xPosicion, comidaReal.yPosicion});
+
+        // COMIDAS FALSAS
+        for (int i = 0; i < 3; i++) {
+
+            Comida fake = new Comida();
+            fake.esReal = false;
+
+            generarComidaValida(fake, ocupadas);
+
+            comida.add(fake);
+            ocupadas.add(new int[]{fake.xPosicion, fake.yPosicion});
+        }
+    }
 
     public void generarComidaSegura() {
 
@@ -49,14 +103,15 @@ public class Main extends ApplicationAdapter {
 
         while (!posicionValida) {
 
-            comida.generate(800, 600, celda);
+            Comida c = new Comida();
+            c.generate(800, 600, celda);
 
             posicionValida = true;
 
             for (int[] parte : serpiente.cuerpo) {
 
-                if (parte[0] == comida.xPosicion &&
-                    parte[1] == comida.yPosicion) {
+                if (parte[0] == c.xPosicion &&
+                    parte[1] == c.yPosicion) {
 
                     posicionValida = false;
                     break;
@@ -84,7 +139,7 @@ public class Main extends ApplicationAdapter {
     puntaje = 0;
     speed = 1;
 
-    estado = EstadoJuego.JUGANDO;
+    estado = EstadoJuego.ESPERANDO;
 
 } else {
 
@@ -101,6 +156,7 @@ public class Main extends ApplicationAdapter {
         prefs = Gdx.app.getPreferences("SnakeRecord");
         record = prefs.getInteger("record", 0);
 
+        sonidoError = Gdx.audio.newSound(Gdx.files.internal("Comida_Falsa.wav"));
         sonidoComer = Gdx.audio.newSound(Gdx.files.internal("mixkit-winning-a-coin-video-game-2069.wav"));
         sonidoMuerte = Gdx.audio.newSound(Gdx.files.internal("mixkit-8-bit-lose-2031.wav"));
         sonidoSpeed = Gdx.audio.newSound( Gdx.files.internal("Speed.wav"));
@@ -110,9 +166,7 @@ public class Main extends ApplicationAdapter {
         camera.setToOrtho(false, 800, 600);
 
         serpiente = new Snake();
-        comida = new Comida();
-
-        generarComidaSegura();
+        generarComidas();
 
 
         // Se establece la conexión del puerto donde está conectado el Arduino con el programa
@@ -127,40 +181,98 @@ public class Main extends ApplicationAdapter {
 
         float delta = Gdx.graphics.getDeltaTime();
 
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+
+            int respuesta = Pausa.mostrar();
+
+            if (respuesta == 0) {
+
+                estado = EstadoJuego.ESPERANDO;
+
+            }
+            else if (respuesta == 1) {
+
+                Gdx.app.exit();
+
+            }
+        }
+
+        // Detectar primera dirección para iniciar
+        if (estado == EstadoJuego.ESPERANDO) {
+
+            if (Gdx.input.isKeyJustPressed(Input.Keys.UP) ||
+                Gdx.input.isKeyJustPressed(Input.Keys.W)) {
+
+                serpiente.agregarDireccion(0, 1);
+                estado = EstadoJuego.JUGANDO;
+            }
+
+            if (Gdx.input.isKeyJustPressed(Input.Keys.DOWN) ||
+                Gdx.input.isKeyJustPressed(Input.Keys.S)) {
+
+                serpiente.agregarDireccion(0, -1);
+                estado = EstadoJuego.JUGANDO;
+            }
+
+            if (Gdx.input.isKeyJustPressed(Input.Keys.LEFT) ||
+                Gdx.input.isKeyJustPressed(Input.Keys.A)) {
+
+                serpiente.agregarDireccion(-1, 0);
+                estado = EstadoJuego.JUGANDO;
+            }
+
+            if (Gdx.input.isKeyJustPressed(Input.Keys.RIGHT) ||
+                Gdx.input.isKeyJustPressed(Input.Keys.D)) {
+
+                serpiente.agregarDireccion(1, 0);
+                estado = EstadoJuego.JUGANDO;
+            }
+        }
+
         // Entradas (Input)
         if (estado == EstadoJuego.JUGANDO) {
 
             //Arriba
             if (Gdx.input.isKeyJustPressed(Input.Keys.UP)) {
                 serpiente.agregarDireccion(0, 1);
+                estado = EstadoJuego.JUGANDO;
             }
             if (Gdx.input.isKeyJustPressed(Input.Keys.W)) {
                 serpiente.agregarDireccion(0, 1);
+                estado = EstadoJuego.JUGANDO;
             }
             //Abajo
             if (Gdx.input.isKeyJustPressed(Input.Keys.DOWN)) {
                 serpiente.agregarDireccion(0, -1);
+                estado = EstadoJuego.JUGANDO;
             }
             if (Gdx.input.isKeyJustPressed(Input.Keys.S)) {
                 serpiente.agregarDireccion(0, -1);
+                estado = EstadoJuego.JUGANDO;
             }
             //Izquierda
             if (Gdx.input.isKeyJustPressed(Input.Keys.LEFT)) {
                 serpiente.agregarDireccion(-1, 0);
+                estado = EstadoJuego.JUGANDO;
             }
             if (Gdx.input.isKeyJustPressed(Input.Keys.A)) {
                 serpiente.agregarDireccion(-1, 0);
+                estado = EstadoJuego.JUGANDO;
             }
             //Derecha
             if (Gdx.input.isKeyJustPressed(Input.Keys.RIGHT)) {
                 serpiente.agregarDireccion(1, 0);
+                estado = EstadoJuego.JUGANDO;
             }
             if (Gdx.input.isKeyJustPressed(Input.Keys.D)) {
                 serpiente.agregarDireccion(1, 0);
+                estado = EstadoJuego.JUGANDO;
             }
 
             // le pide el tiempo del frame a el metodo (movimiento)
-            serpiente.movimiento(delta);
+            if (estado == EstadoJuego.JUGANDO) {
+                serpiente.movimiento(delta);
+            }
 
             // cabeza de la serpiente
             int[] cabeza = serpiente.cuerpo.get(0);
@@ -186,29 +298,65 @@ public class Main extends ApplicationAdapter {
             }
 
             // Si la serpiente toca la comida, la comida aparece en otro lugar
-            if (cabeza[0] == comida.xPosicion &&
-                cabeza[1] == comida.yPosicion) {
+            boolean comio = false;
+            boolean reiniciarComida = false;
 
-                generarComidaSegura();
+            for (Comida c : comida) {
 
-                // crecer serpiente
-                serpiente.crecer = true;
-                puntaje+=10;
+                if (comio) break;
 
-                if (puntaje > record) {
-                    record = puntaje;
-                    prefs.putInteger("record", record);
-                    prefs.flush();
+                if (cabeza[0] == c.xPosicion &&
+                    cabeza[1] == c.yPosicion) {
+
+                    // COMIDA REAL
+                    if (c.esReal) {
+                        serpiente.crecer = true;
+                        puntaje += 10;
+                        sonidoComer.play();
+                        comio = true;
+                        reiniciarComida = true;
+
+                        if (puntaje > record) {
+                            record = puntaje;
+                            prefs.putInteger("record", record);
+                            prefs.flush();
+                        }
+
+                        if (puntaje % 100 == 0) {
+                            serpiente.aumentarVelocidad();
+                            speed++;
+                            sonidoSpeed.play();
+                        }
+
+                    }
+                    // COMIDA FALSA
+                    else {
+                        sonidoError.play();
+                        comio = true;
+
+                        ArrayList<int[]> ocupadas = new ArrayList<>();
+
+                        // posiciones del snake
+                        for (int[] p : serpiente.cuerpo) {
+                            ocupadas.add(new int[]{p[0], p[1]});
+                        }
+
+                        // posiciones de las demás comidas
+                        for (Comida otra : comida) {
+
+                            if (otra != c) {
+                                ocupadas.add(new int[]{otra.xPosicion, otra.yPosicion});
+                            }
+                        }
+
+                        // mover la comida falsa que fue tocada
+                        generarComidaValida(c, ocupadas);
+                    }
                 }
-
-                if (puntaje % 100 == 0) {
-
-                    serpiente.aumentarVelocidad();
-                    speed++;
-                    sonidoSpeed.play();
-                }
-
-                sonidoComer.play();
+            }
+            if (reiniciarComida){
+                generarComidas();
+                reiniciarComida = false;
             }
         }
 
@@ -239,7 +387,7 @@ public class Main extends ApplicationAdapter {
         // panel superior
         shape.begin(ShapeRenderer.ShapeType.Filled);
 
-// snake
+        // snake
         for (int i = 0; i < serpiente.cuerpo.size(); i++) {
 
             int[] parte = serpiente.cuerpo.get(i);
@@ -247,7 +395,7 @@ public class Main extends ApplicationAdapter {
             if (i == 0) {
 
                 // cabeza
-                shape.setColor(0, 0.6f, 0, 1);
+                shape.setColor(0, 0.4f, 0, 1); // verde oscuro
 
                 shape.rect(
                     parte[0] * celda,
@@ -256,39 +404,51 @@ public class Main extends ApplicationAdapter {
                     celda
                 );
 
-                // ojos
+                float xCabeza = parte[0] * celda;
+                float yCabeza = parte[1] * celda;
+
+                float xComida = comidaReal.xPosicion * celda;
+                float yComida = comidaReal.yPosicion * celda;
+
+                // vector hacia la comida
+                float dirX = xComida - xCabeza;
+                float dirY = yComida - yCabeza;
+
+                // normalizar
+                float len = (float)Math.sqrt(dirX * dirX + dirY * dirY);
+                if (len != 0) {
+                    dirX /= len;
+                    dirY /= len;
+                }
+
+                // dibujar ojos blancos (FIJOS)
                 shape.setColor(1, 1, 1, 1);
 
-                float x = parte[0] * celda;
-                float y = parte[1] * celda;
+                float ojo1X = xCabeza + 15;
+                float ojo1Y = yCabeza + 35;
 
-                // mirando derecha
-                if (serpiente.xDireccion == 1) {
+                float ojo2X = xCabeza + 35;
+                float ojo2Y = yCabeza + 15;
 
-                    shape.circle(x + 35, y + 35, 4);
-                    shape.circle(x + 35, y + 15, 4);
-                }
+                shape.circle(ojo1X, ojo1Y, 6);
+                shape.circle(ojo2X, ojo2Y, 6);
 
-                // mirando izquierda
-                else if (serpiente.xDireccion == -1) {
+                // pupilas (MOVIMIENTO)
+                shape.setColor(0, 0, 0, 1);
 
-                    shape.circle(x + 15, y + 35, 4);
-                    shape.circle(x + 15, y + 15, 4);
-                }
+                float offset = 3;
 
-                // mirando arriba
-                else if (serpiente.yDireccion == 1) {
+                shape.circle(
+                    ojo1X + dirX * offset,
+                    ojo1Y + dirY * offset,
+                    4
+                );
 
-                    shape.circle(x + 15, y + 35, 4);
-                    shape.circle(x + 35, y + 35, 4);
-                }
-
-                // mirando abajo
-                else if (serpiente.yDireccion == -1) {
-
-                    shape.circle(x + 15, y + 15, 4);
-                    shape.circle(x + 35, y + 15, 4);
-                }
+                shape.circle(
+                    ojo2X + dirX * offset,
+                    ojo2Y + dirY * offset,
+                    4
+                );
 
             } else {
 
@@ -304,19 +464,37 @@ public class Main extends ApplicationAdapter {
             }
         }
 
-// comida
-        shape.setColor(1, 0, 0, 1);
-        shape.rect(
-            comida.xPosicion * celda,
-            comida.yPosicion * celda,
-            celda,
-            celda
-        );
+        // comida
+        // comida (TODAS)
+        for (Comida c : comida) {
+
+            if (c.esReal) {
+                shape.setColor(1, 0, 0, 1); // real rojo
+            } else {
+                shape.setColor(1, 0, 0, 1); // falsa amarillo
+            }
+
+            shape.rect(
+                c.xPosicion * celda,
+                c.yPosicion * celda,
+                celda,
+                celda
+            );
+        }
 
         shape.end();
 
         batch.setProjectionMatrix(camera.combined);
         batch.begin();
+
+        if (estado == EstadoJuego.ESPERANDO) {
+
+            font.draw(batch,
+                "PRESIONA UNA DIRECCION PARA COMENZAR",
+                225,
+                300
+            );
+        }
 
         font.draw(batch,
             "SCORE: " + String.format("%06d", puntaje),
