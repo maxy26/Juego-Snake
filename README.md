@@ -87,6 +87,6 @@ El juego guarda el mayor puntaje alcanzado usando:
 
 ---
 
-## 👨‍💻 Autor
+## 👨‍💻 Autores
 
-Autor: Michael Ruiz
+Michael Ruiz y Nilmer Osorio
